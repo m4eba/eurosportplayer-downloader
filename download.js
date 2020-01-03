@@ -49,7 +49,6 @@ const opt = [
   },
   {
     name: 'login-timeout',
-    alias: 'l',
     typeLabel: '{underline timeout in msec}',
     defaultValue: 30000,
     description: 'set the timeout for the login process',
@@ -69,6 +68,14 @@ const opt = [
     typeLabel: '{underline directory}',
     description: 'output directory for video',
     defaultValue: './',
+    type: String
+  },
+  {
+    name: 'language',
+    alias: 'l',
+    typeLabel: '{underline language}',
+    description: 'audio language: eng(default),deu,cze,gre,hun,ita,por,ron,rus,tur',
+    defaultValue: 'eng',
     type: String
   },
   {

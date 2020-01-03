@@ -28,10 +28,11 @@ $ node download.js -c google-chrome -a profile [urls to download]
     -h, --help                      show usage guide
     -e, --email EMAIL               email for login
     -p, --password PASSWORD         password for login
+    -l, --language LANGUAGE         audio language: eng(default),deu,cze,gre,hun,ita,por,ron,rus,tur
     -d, --debug                     run in debug mode
     -c, --chrome-exec PATH          chrome executable
     -a, --user-data-dir PATH        user-data-dir for chrome instance
-    -l, --login-timeout NUMBER      set the timeout in msec for the login process (Default: 30000)
+        --login-timeout NUMBER      set the timeout in msec for the login process (Default: 30000)
     -t, --tmp PATH                  temp directory for download data (Default: tmp)
     -o, --out PATH                  output directory for video
     -u, --url URL                   urls to download              

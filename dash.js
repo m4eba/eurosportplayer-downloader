@@ -143,20 +143,27 @@ async function download(url, filename, key, args) {
 
     console.log('period duartion', Period[0].$.duration);
 
-    let audioSet;
-    let videoSet;
+    let audioSet = null;
+    let videoSet = null;
     let processing = null;
 
     for (let k in adaptationSets) {
       const value = adaptationSets[k];
+      
       processing = value['$']['mimeType'];
 
       if (processing.startsWith('video')) {
         videoSet = value;
       }
       if (processing.startsWith('audio')) {
-        audioSet = value;
+        if ( value['$']['lang'] === args.language ) {
+          audioSet = value;
+        }
       }
+    }
+    if ( audioSet === null ) {
+      console.log('language not found ',args.language);
+      process.exit(1);
     }
 
     const audio = processAdaptionSet(audioSet);
