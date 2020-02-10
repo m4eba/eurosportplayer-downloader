@@ -149,20 +149,20 @@ async function download(url, filename, key, args) {
 
     for (let k in adaptationSets) {
       const value = adaptationSets[k];
-      
+
       processing = value['$']['mimeType'];
 
       if (processing.startsWith('video')) {
         videoSet = value;
       }
       if (processing.startsWith('audio')) {
-        if ( value['$']['lang'] === args.language ) {
+        if (value['$']['lang'] === args.language) {
           audioSet = value;
         }
       }
     }
-    if ( audioSet === null ) {
-      console.log('language not found ',args.language);
+    if (audioSet === null) {
+      console.log('language not found ', args.language);
       process.exit(1);
     }
 
