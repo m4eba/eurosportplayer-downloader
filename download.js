@@ -79,6 +79,11 @@ const opt = [
     type: String
   },
   {
+    name: 'keep-tmp-files',
+    description: 'don\'t delete temporary files',
+    type: Boolean
+  },
+  {
     name: 'url',
     alias: 'u',
     typeLabel: '{underline url}',
@@ -207,22 +212,23 @@ async function login(browser) {
 async function video(browser, url) {
   const p = new Promise(async function (resolve, reject) {
     let result = {
-      url: null
+      url: null,
+      key: []
     };
     let page = null;
-    let count = 0;
 
 
     let rcb = function (r) {
       if (r.url().indexOf('index.mpd') > 0) {
         result.url = r.url();
+      }
+      if (r.url().indexOf('playback/v2/report') > 0) {
         done();
       }
     }
     let rescb = async function (res) {
       if (res.request().url().indexOf('clearkey') > 0) {
-        result.key = await res.text();
-        done();
+        result.key.push(await res.text());
       }
     }
 
@@ -239,14 +245,11 @@ async function video(browser, url) {
     const date = await page.$eval('[data-sonic-attribute="publish-date"]', d => d.innerHTML);
     result.date = date.trim();
     result.time = '';
-    done();
 
     function done() {
-      if (++count == 3) {
-        page.removeListener('request', rcb);
-        page.removeListener('response', rescb);
-        page.close().then(() => resolve(result));
-      }
+      page.removeListener('request', rcb);
+      page.removeListener('response', rescb);
+      page.close().then(() => resolve(result));
     }
 
   });
@@ -272,16 +275,27 @@ async function video(browser, url) {
       let filename = sanitize(params.date + ' - ' + params.time + ' ' + params.title + '.mp4');
       filename = await uniquefilename.get(path.join(args.out, filename.trim()), {});
 
+      let key = [];
       let keyData = null;
-      try {
-        keyData = JSON.parse(params.key);
-      } catch (e) {
-        console.log('unable to parse key data from ', params.key);
-        process.exit(1);
-      }
-      const buf = Buffer.from(keyData.keys[0].k, 'base64');
-      const key = buf.toString('hex');
-      console.log('key', key);
+
+      params.key.forEach(data => {
+        try {
+          keyData = JSON.parse(data);
+        } catch (e) {
+          console.log('unable to parse key data from ', data);
+          process.exit(1);
+        }
+        const buf = Buffer.from(keyData.keys[0].k, 'base64');
+        const k = buf.toString('hex');
+        const buf2 = Buffer.from(keyData.keys[0].kid, 'base64');
+        const kid = buf2.toString('hex');
+        console.log('kid:k', kid, k);
+        key.push({
+          k: k,
+          kid: kid
+        })
+      });
+
       await dash_download(params.url, filename, key, args);
     }
     await browser.close();

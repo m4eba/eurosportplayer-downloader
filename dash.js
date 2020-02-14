@@ -1,7 +1,8 @@
 const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
-const URL = require('url').URL;
+const urlutil = require('url');
+const url = urlutil.URL;
 const util = require('util');
 const parseString = util.promisify(require('xml2js').parseString);
 const exec = util.promisify(require('child_process').exec);
@@ -35,17 +36,23 @@ function processAdaptionSet(adapSet) {
   obj.segmentIdx = 0;
   obj.done = false;
 
-
-  const init = rep.SegmentTemplate[0].$.initialization;
-  const media = rep.SegmentTemplate[0].$.media;
+  let segTemp = null;
+  if (adapSet.SegmentTemplate) {
+    segTemp = adapSet.SegmentTemplate[0];
+  }
+  if (rep.SegmentTemplate) {
+    segTemp = rep.SegmentTemplate[0];
+  }
+  const init = segTemp.$.initialization;
+  const media = segTemp.$.media;
 
   obj.segments.push({
     url: init.replace('$RepresentationID$', obj.id)
   });
 
   let time;
-  let count = 0;
-  rep.SegmentTemplate[0].SegmentTimeline[0].S.forEach(function (timeline) {
+  let number = segTemp.$.startNumber;
+  segTemp.SegmentTimeline[0].S.forEach(function (timeline) {
     if (timeline.$.t) {
       time = parseInt(timeline.$.t);
     }
@@ -60,7 +67,7 @@ function processAdaptionSet(adapSet) {
     for (let i = 0; i <= repeat; ++i) {
       let url = media.replace('$RepresentationID$', obj.id);
       url = url.replace('$Time$', time);
-      url = url.replace('$Number$', ++count);
+      url = url.replace('$Number$', number++);
       console.log('add url', url);
       obj.segments.push({
         url: url
@@ -82,9 +89,10 @@ async function fetch_segments(dash_base, media) {
 
   for (let i = 0; i < media.segments.length; ++i) {
     let url = media.segments[i].url;
+    url = urlutil.resolve(dash_base, url);
     console.log('fetch', i, url);
 
-    let res = await fetch(dash_base + url);
+    let res = await fetch(url);
     let buf = await res.buffer();
 
     media.outstream.write(buf);
@@ -95,7 +103,9 @@ async function fetch_segments(dash_base, media) {
 async function decrypt(media, key) {
   let command = '';
   command += 'mp4decrypt ';
-  command += '--key 1:' + key + ' '
+  for (let i = 0; i < key.length; ++i) {
+    command += ` --key ${key[i].kid}:${key[i].k}  `
+  }
   command += STORAGE + media.filename + ' ';
   command += STORAGE + 'decrypted_' + media.filename;
 
@@ -125,7 +135,7 @@ async function download(url, filename, key, args) {
   let mpd = await res.text();
 
   let uri = new URL(url);
-  let dash_base = uri.protocol + '//' + uri.host + uri.pathname;
+  let dash_base = uri.protocol + '//' + uri.host + path.parse(uri.pathname).dir + '/';
   console.log('base', dash_base);
 
   if (args.tmp) {
@@ -136,6 +146,7 @@ async function download(url, filename, key, args) {
   }
 
   const xml = await parseString(mpd);
+
   try {
     const Period = xml['MPD']['Period'];
     //input_dash_base = Period[0]['BaseURL'];//[0];
@@ -189,11 +200,13 @@ async function download(url, filename, key, args) {
 
     await join(video, audio, filename);
 
-    await rmFile(STORAGE + video.filename);
-    await rmFile(STORAGE + 'decrypted_' + video.filename);
-    await rmFile(STORAGE + audio.filename);
-    await rmFile(STORAGE + 'decrypted_' + audio.filename);
-    await rmFile(STORAGE + 'debug.json');
+    if (!args['keep-tmp-files']) {
+      await rmFile(STORAGE + video.filename);
+      await rmFile(STORAGE + 'decrypted_' + video.filename);
+      await rmFile(STORAGE + audio.filename);
+      await rmFile(STORAGE + 'decrypted_' + audio.filename);
+      await rmFile(STORAGE + 'debug.json');
+    }
   } catch (e) {
     console.log(e);
     throw new Error('unable to process mpd ' + e);
