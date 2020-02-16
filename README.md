@@ -2,7 +2,7 @@ download videos from eurosportplayer.com
 
 ### Prerequisites
 
-* use need ffmpeg in PATH to download/join video and audio.
+* needs ffmpeg in PATH to download/join video and audio.
 * node.js to run the tool http://nodejs.org
 
 ### reCaptcha v3
