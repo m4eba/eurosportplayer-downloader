@@ -98,10 +98,9 @@ const sections = [
   {
     header: 'Download from eurosportplayer.com',
     content: [
-      'Uses puppeteer to get dash manifest url and the key for decryption.',
-      'Then downloads the video and audio stream into a temporary directory.',
-      'Both are decrypted with mp4decrypt from bento4.com (must be in PATH).',
-      'And joined with ffmpeg (also must be in PATH)'
+      'Uses puppeteer to get m3u8 url. Then uses ffmpeg (must be in PATH)',
+      'to download the video and audio stream into a temporary directory.',
+      'Finally both are joined with ffmpeg.'
     ]
   },
   {
