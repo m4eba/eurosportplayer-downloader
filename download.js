@@ -4,7 +4,8 @@ const commandLineUsage = require('command-line-usage');
 const commandLineArgs = require('command-line-args');
 const sanitize = require("sanitize-filename");
 const uniquefilename = require('uniquefilename');
-const dash_download = require('./dash');
+const fetch = require('node-fetch');
+const hls_download = require('./hls');
 
 const opt = [
   {
@@ -210,50 +211,28 @@ async function login(browser) {
 }
 
 async function video(browser, url) {
-  const p = new Promise(async function (resolve, reject) {
-    let result = {
-      url: null,
-      key: []
-    };
-    let page = null;
+  let result = {
+    url: null,
+    m3u8: null
+  };
 
+  const page = await browser.newPage();
+  page.setViewport({ width: 1280, height: 720 });
 
-    let rcb = function (r) {
-      if (r.url().indexOf('index.mpd') > 0) {
-        result.url = r.url();
-      }
-      if (r.url().indexOf('playback/v2/report') > 0) {
-        done();
-      }
-    }
-    let rescb = async function (res) {
-      if (res.request().url().indexOf('clearkey') > 0) {
-        result.key.push(await res.text());
-      }
-    }
+  await page.goto(url);
+  const m3u8 = await page.waitForResponse(response => response.url().indexOf('index.m3u8') > 0, { timeout: 10000 });
+  result.url = m3u8.url();
+  if (m3u8.ok())
+    result.m3u8 = await m3u8.text();
+  await page.waitFor('[data-sonic-attribute="title"]');
+  result.title = await page.$eval('[data-sonic-attribute="title"]', d => d.innerHTML);
+  const date = await page.$eval('[data-sonic-attribute="publish-date"]', d => d.innerHTML);
+  result.date = date.trim();
+  result.time = '';
 
+  await page.close();
 
-    page = await browser.newPage();
-
-
-    page.setViewport({ width: 1280, height: 720 });
-    page.on('request', rcb);
-    page.on('response', rescb);
-    await page.goto(url);
-    await page.waitFor('[data-sonic-attribute="title"]');
-    result.title = await page.$eval('[data-sonic-attribute="title"]', d => d.innerHTML);
-    const date = await page.$eval('[data-sonic-attribute="publish-date"]', d => d.innerHTML);
-    result.date = date.trim();
-    result.time = '';
-
-    function done() {
-      page.removeListener('request', rcb);
-      page.removeListener('response', rescb);
-      page.close().then(() => resolve(result));
-    }
-
-  });
-  return p;
+  return result;
 }
 
 
@@ -269,34 +248,38 @@ async function video(browser, url) {
 
     for (let i = 0; i < args.url.length; ++i) {
       const url = args.url[i];
-      const params = await video(browser, url);
+      let params = null;
+
+      try {
+        params = await video(browser, url);
+      } catch (e) {
+        console.log(e);
+      }
+
+      // the m3u8 gets a lot of 403 returns :(
+      // fetch it, if empty
+      if (params.m3u8 === null) {
+        let count = 0;
+        while (count++ < 10) {
+          console.log('retry', params.url);
+          const resp = await fetch(params.url);
+          console.log(resp.ok, resp.statusText);
+          if (resp.ok) {
+            params.m3u8 = await resp.text();
+            break;
+          }
+        }
+      }
       console.log(params);
+      if (params.m3u8 === null) {
+        console.log(`unable to get m3u8 for ${url}`);
+        process.exit(1);
+      }
 
       let filename = sanitize(params.date + ' - ' + params.time + ' ' + params.title + '.mp4');
       filename = await uniquefilename.get(path.join(args.out, filename.trim()), {});
 
-      let key = [];
-      let keyData = null;
-
-      params.key.forEach(data => {
-        try {
-          keyData = JSON.parse(data);
-        } catch (e) {
-          console.log('unable to parse key data from ', data);
-          process.exit(1);
-        }
-        const buf = Buffer.from(keyData.keys[0].k, 'base64');
-        const k = buf.toString('hex');
-        const buf2 = Buffer.from(keyData.keys[0].kid, 'base64');
-        const kid = buf2.toString('hex');
-        console.log('kid:k', kid, k);
-        key.push({
-          k: k,
-          kid: kid
-        })
-      });
-
-      await dash_download(params.url, filename, key, args);
+      await hls_download(params, filename, args);
     }
     await browser.close();
   } catch (e) {

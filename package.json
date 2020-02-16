@@ -6,6 +6,7 @@
   "dependencies": {
     "command-line-args": "^5.1.1",
     "command-line-usage": "^6.1.0",
+    "m3u8-parser": "^4.4.0",
     "node-fetch": "^2.6.0",
     "puppeteer-core": "^2.0.0",
     "sanitize-filename": "^1.6.1",
