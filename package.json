@@ -8,7 +8,7 @@
     "command-line-usage": "^6.1.0",
     "m3u8-parser": "^4.4.0",
     "node-fetch": "^2.6.0",
-    "puppeteer-core": "^2.0.0",
+    "puppeteer": "^2.1.1",
     "sanitize-filename": "^1.6.1",
     "uniquefilename": "^1.1.2",
     "xml2js": "^0.4.22"

@@ -1,5 +1,5 @@
 const path = require('path');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 const commandLineUsage = require('command-line-usage');
 const commandLineArgs = require('command-line-args');
 const sanitize = require("sanitize-filename");
@@ -105,14 +105,6 @@ const sections = [
     ]
   },
   {
-    header: 'chromium vs google-chrome',
-    content: [
-      'The video playback won\'t start with the chromium build shipped with puppeteer.',
-      'see https://github.com/puppeteer/puppeteer#q-what-features-does-puppeteer-not-support',
-      'Use the chrome-exec flag with google chrome executable'
-    ]
-  },
-  {
     header: 'reCaptcha v3',
     content: [
       'Unfortunately the login is protected with reCaptcha and an empty chrome profile will in most cases trigger it.',
@@ -148,9 +140,6 @@ if (args.debug == true) {
 
 if (args['chrome-exec']) {
   config.executablePath = args['chrome-exec'];
-} else {
-  console.log('chrome executable required, set it with chrome-exec, see --help');
-  process.exit(1);
 }
 if (args['user-data-dir']) {
   config.userDataDir = args['user-data-dir'];
