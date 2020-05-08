@@ -12,48 +12,48 @@ const opt = [
     name: "help",
     alias: "h",
     description: "show this usage guide",
-    type: Boolean
+    type: Boolean,
   },
   {
     name: "email",
     alias: "e",
     typeLabel: "{underline email}",
     description: "email for login",
-    type: String
+    type: String,
   },
   {
     name: "password",
     alias: "p",
     typeLabel: "{underline password}",
     description: "password for login",
-    type: String
+    type: String,
   },
   {
     name: "debug",
     alias: "d",
     description: "run in debug mode",
-    type: Boolean
+    type: Boolean,
   },
   {
     name: "chrome-exec",
     alias: "c",
     typeLabel: "{underline path to executable}",
     description: "chrome executable",
-    type: String
+    type: String,
   },
   {
     name: "user-data-dir",
     alias: "a",
     typeLabel: "{underline directory}",
     description: "user-data-dir for chrome instance",
-    type: String
+    type: String,
   },
   {
     name: "login-timeout",
     typeLabel: "{underline timeout in msec}",
     defaultValue: 30000,
     description: "set the timeout for the login process",
-    type: Number
+    type: Number,
   },
   {
     name: "tmp",
@@ -61,7 +61,7 @@ const opt = [
     typeLabel: "{underline directory}",
     description: "temp directory for download data (Default: tmp)",
     defaultValue: "tmp",
-    type: String
+    type: String,
   },
   {
     name: "out",
@@ -69,7 +69,7 @@ const opt = [
     typeLabel: "{underline directory}",
     description: "output directory for video",
     defaultValue: "./",
-    type: String
+    type: String,
   },
   {
     name: "language",
@@ -78,12 +78,12 @@ const opt = [
     description:
       "audio language: eng(default),deu,cze,gre,hun,ita,por,ron,rus,tur",
     defaultValue: "eng",
-    type: String
+    type: String,
   },
   {
     name: "keep-tmp-files",
     description: "don't delete temporary files",
-    type: Boolean
+    type: Boolean,
   },
   {
     name: "url",
@@ -92,8 +92,8 @@ const opt = [
     description: "urls to download",
     multiple: true,
     defaultOption: true,
-    type: String
-  }
+    type: String,
+  },
 ];
 const sections = [
   {
@@ -101,8 +101,8 @@ const sections = [
     content: [
       "Uses puppeteer to get m3u8 url. Then uses ffmpeg (must be in PATH)",
       "to download the video and audio stream into a temporary directory.",
-      "Finally both are joined with ffmpeg."
-    ]
+      "Finally both are joined with ffmpeg.",
+    ],
   },
   {
     header: "reCaptcha v3",
@@ -113,13 +113,13 @@ const sections = [
       "node download.js -c google-chrome -e email -p pass -d -a profile --login-timeout 120000 http://eurosportplayer.com",
       "solve the captcha to login and close chrome (don't ctrl+c!)",
       "then reuse with",
-      "node download.js -c google-chrome -a profile http://...."
-    ]
+      "node download.js -c google-chrome -a profile http://....",
+    ],
   },
   {
     header: "Options",
-    optionList: opt
-  }
+    optionList: opt,
+  },
 ];
 
 const args = commandLineArgs(opt);
@@ -133,7 +133,7 @@ let config = {};
 if (args.debug == true) {
   config = {
     slowMo: 100,
-    devtools: true
+    devtools: true,
   };
 }
 
@@ -184,9 +184,9 @@ async function login(browser) {
     await page.waitFor(3000);
     await page.type("#email", args.email);
     await page.type("#password", args.password);
-    await page.$$eval('button[type="submit"]', sub => sub[0].click());
+    await page.$$eval('button[type="submit"]', (sub) => sub[0].click());
     await page.waitForSelector('button[class*="styles-authButton"]', {
-      timeout: args["login-timeout"]
+      timeout: args["login-timeout"],
     });
     await page.close();
   } catch (e) {
@@ -198,7 +198,7 @@ async function login(browser) {
 async function video(browser, url) {
   let result = {
     url: null,
-    m3u8: null
+    m3u8: null,
   };
 
   const page = await browser.newPage();
@@ -206,7 +206,7 @@ async function video(browser, url) {
 
   await page.goto(url);
   const m3u8 = await page.waitForResponse(
-    response => response.url().indexOf("index.m3u8") > 0,
+    (response) => response.url().indexOf("index.m3u8") > 0,
     { timeout: 10000 }
   );
   result.url = m3u8.url();
@@ -214,11 +214,11 @@ async function video(browser, url) {
   await page.waitFor('[data-sonic-attribute="title"]');
   result.title = await page.$eval(
     '[data-sonic-attribute="title"]',
-    d => d.innerHTML
+    (d) => d.innerHTML
   );
   const date = await page.$eval(
     '[data-sonic-attribute="publish-date"]',
-    d => d.innerHTML
+    (d) => d.innerHTML
   );
   result.date = date.trim();
   result.time = "";
@@ -242,13 +242,18 @@ async function video(browser, url) {
       let params = null;
 
       let tries = 0;
-      while (tries++ < 5) {
+      while (tries++ < 15) {
         try {
           params = await video(browser, url);
           break;
         } catch (e) {
           console.log(e);
         }
+      }
+      // exit if params not returned
+      if (params === null) {
+        console.log(`unable to get m3u8 url for ${url}`);
+        process.exit(1);
       }
 
       // the m3u8 gets a lot of 403 returns :(
