@@ -1,128 +1,129 @@
-const path = require('path');
-const puppeteer = require('puppeteer');
-const commandLineUsage = require('command-line-usage');
-const commandLineArgs = require('command-line-args');
+const path = require("path");
+const puppeteer = require("puppeteer");
+const commandLineUsage = require("command-line-usage");
+const commandLineArgs = require("command-line-args");
 const sanitize = require("sanitize-filename");
-const uniquefilename = require('uniquefilename');
-const fetch = require('node-fetch');
-const hls_download = require('./hls');
+const uniquefilename = require("uniquefilename");
+const fetch = require("node-fetch");
+const hls_download = require("./hls");
 
 const opt = [
   {
-    name: 'help',
-    alias: 'h',
-    description: 'show this usage guide',
+    name: "help",
+    alias: "h",
+    description: "show this usage guide",
     type: Boolean
   },
   {
-    name: 'email',
-    alias: 'e',
-    typeLabel: '{underline email}',
-    description: 'email for login',
+    name: "email",
+    alias: "e",
+    typeLabel: "{underline email}",
+    description: "email for login",
     type: String
   },
   {
-    name: 'password',
-    alias: 'p',
-    typeLabel: '{underline password}',
-    description: 'password for login',
+    name: "password",
+    alias: "p",
+    typeLabel: "{underline password}",
+    description: "password for login",
     type: String
   },
   {
-    name: 'debug',
-    alias: 'd',
-    description: 'run in debug mode',
+    name: "debug",
+    alias: "d",
+    description: "run in debug mode",
     type: Boolean
   },
   {
-    name: 'chrome-exec',
-    alias: 'c',
-    typeLabel: '{underline path to executable}',
-    description: 'chrome executable',
+    name: "chrome-exec",
+    alias: "c",
+    typeLabel: "{underline path to executable}",
+    description: "chrome executable",
     type: String
   },
   {
-    name: 'user-data-dir',
-    alias: 'a',
-    typeLabel: '{underline directory}',
-    description: 'user-data-dir for chrome instance',
+    name: "user-data-dir",
+    alias: "a",
+    typeLabel: "{underline directory}",
+    description: "user-data-dir for chrome instance",
     type: String
   },
   {
-    name: 'login-timeout',
-    typeLabel: '{underline timeout in msec}',
+    name: "login-timeout",
+    typeLabel: "{underline timeout in msec}",
     defaultValue: 30000,
-    description: 'set the timeout for the login process',
+    description: "set the timeout for the login process",
     type: Number
   },
   {
-    name: 'tmp',
-    alias: 't',
-    typeLabel: '{underline directory}',
-    description: 'temp directory for download data (Default: tmp)',
-    defaultValue: 'tmp',
+    name: "tmp",
+    alias: "t",
+    typeLabel: "{underline directory}",
+    description: "temp directory for download data (Default: tmp)",
+    defaultValue: "tmp",
     type: String
   },
   {
-    name: 'out',
-    alias: 'o',
-    typeLabel: '{underline directory}',
-    description: 'output directory for video',
-    defaultValue: './',
+    name: "out",
+    alias: "o",
+    typeLabel: "{underline directory}",
+    description: "output directory for video",
+    defaultValue: "./",
     type: String
   },
   {
-    name: 'language',
-    alias: 'l',
-    typeLabel: '{underline language}',
-    description: 'audio language: eng(default),deu,cze,gre,hun,ita,por,ron,rus,tur',
-    defaultValue: 'eng',
+    name: "language",
+    alias: "l",
+    typeLabel: "{underline language}",
+    description:
+      "audio language: eng(default),deu,cze,gre,hun,ita,por,ron,rus,tur",
+    defaultValue: "eng",
     type: String
   },
   {
-    name: 'keep-tmp-files',
-    description: 'don\'t delete temporary files',
+    name: "keep-tmp-files",
+    description: "don't delete temporary files",
     type: Boolean
   },
   {
-    name: 'url',
-    alias: 'u',
-    typeLabel: '{underline url}',
-    description: 'urls to download',
+    name: "url",
+    alias: "u",
+    typeLabel: "{underline url}",
+    description: "urls to download",
     multiple: true,
     defaultOption: true,
     type: String
   }
-]
+];
 const sections = [
   {
-    header: 'Download from eurosportplayer.com',
+    header: "Download from eurosportplayer.com",
     content: [
-      'Uses puppeteer to get m3u8 url. Then uses ffmpeg (must be in PATH)',
-      'to download the video and audio stream into a temporary directory.',
-      'Finally both are joined with ffmpeg.'
+      "Uses puppeteer to get m3u8 url. Then uses ffmpeg (must be in PATH)",
+      "to download the video and audio stream into a temporary directory.",
+      "Finally both are joined with ffmpeg."
     ]
   },
   {
-    header: 'reCaptcha v3',
+    header: "reCaptcha v3",
     content: [
-      'Unfortunately the login is protected with reCaptcha and an empty chrome profile will in most cases trigger it.',
-      'So until there is an integration with some anti captcha service the best way to deal with it at them moment is to reuse a profile directory with --user-data-dir and use the --debug flag for the first time to solve the captcha manually. :(',
-      '',
-      'node download.js -c google-chrome -e email -p pass -d -a profile --login-timeout 120000 http://eurosportplayer.com',
-      'solve the captcha to login and close chrome (don\'t ctrl+c!)',
-      'then reuse with',
-      'node download.js -c google-chrome -a profile http://....'
+      "Unfortunately the login is protected with reCaptcha and an empty chrome profile will in most cases trigger it.",
+      "So until there is an integration with some anti captcha service the best way to deal with it at them moment is to reuse a profile directory with --user-data-dir and use the --debug flag for the first time to solve the captcha manually. :(",
+      "",
+      "node download.js -c google-chrome -e email -p pass -d -a profile --login-timeout 120000 http://eurosportplayer.com",
+      "solve the captcha to login and close chrome (don't ctrl+c!)",
+      "then reuse with",
+      "node download.js -c google-chrome -a profile http://...."
     ]
   },
   {
-    header: 'Options',
+    header: "Options",
     optionList: opt
   }
 ];
 
 const args = commandLineArgs(opt);
-if (args.help | args.url === undefined) {
+if (args.help | (args.url === undefined)) {
   console.log(commandLineUsage(sections));
   process.exit(0);
 }
@@ -136,32 +137,28 @@ if (args.debug == true) {
   };
 }
 
-
-if (args['chrome-exec']) {
-  config.executablePath = args['chrome-exec'];
+if (args["chrome-exec"]) {
+  config.executablePath = args["chrome-exec"];
 }
-if (args['user-data-dir']) {
-  config.userDataDir = args['user-data-dir'];
+if (args["user-data-dir"]) {
+  config.userDataDir = args["user-data-dir"];
 }
-
 
 async function setup() {
   try {
     const browser = await puppeteer.launch(config);
     return browser;
   } catch (e) {
-    console.log('unable to setup browser', e);
+    console.log("unable to setup browser", e);
     process.exit(1);
   }
 }
-
-
 
 async function testLoggedIn(browser) {
   const page = await browser.newPage();
   page.setViewport({ width: 1280, height: 720 });
 
-  await page.goto('https://auth.eurosportplayer.com/my-account');
+  await page.goto("https://auth.eurosportplayer.com/my-account");
   await page.waitFor(2000);
   const idx = await page.evaluate('document.body.innerHTML.search("Sign in")');
 
@@ -171,29 +168,29 @@ async function testLoggedIn(browser) {
 
 async function login(browser) {
   if (!args.email) {
-    console.log('need email to login');
+    console.log("need email to login");
     process.exit(1);
   }
   if (!args.password) {
-    console.log('need password to login');
+    console.log("need password to login");
     process.exit(1);
   }
   try {
     const page = await browser.newPage();
     page.setViewport({ width: 1280, height: 720 });
 
-    await page.goto('https://auth.eurosportplayer.com/login?flow=login');
+    await page.goto("https://auth.eurosportplayer.com/login?flow=login");
     await page.waitFor('button[type="submit"]');
     await page.waitFor(3000);
-    await page.type('#email', args.email);
-    await page.type('#password', args.password);
+    await page.type("#email", args.email);
+    await page.type("#password", args.password);
     await page.$$eval('button[type="submit"]', sub => sub[0].click());
     await page.waitForSelector('button[class*="styles-authButton"]', {
-      timeout: args['login-timeout']
+      timeout: args["login-timeout"]
     });
     await page.close();
   } catch (e) {
-    console.log('unable to login', e);
+    console.log("unable to login", e);
     process.exit(1);
   }
 }
@@ -208,24 +205,30 @@ async function video(browser, url) {
   page.setViewport({ width: 1280, height: 720 });
 
   await page.goto(url);
-  const m3u8 = await page.waitForResponse(response => response.url().indexOf('index.m3u8') > 0, { timeout: 10000 });
+  const m3u8 = await page.waitForResponse(
+    response => response.url().indexOf("index.m3u8") > 0,
+    { timeout: 10000 }
+  );
   result.url = m3u8.url();
-  if (m3u8.ok())
-    result.m3u8 = await m3u8.text();
+  if (m3u8.ok()) result.m3u8 = await m3u8.text();
   await page.waitFor('[data-sonic-attribute="title"]');
-  result.title = await page.$eval('[data-sonic-attribute="title"]', d => d.innerHTML);
-  const date = await page.$eval('[data-sonic-attribute="publish-date"]', d => d.innerHTML);
+  result.title = await page.$eval(
+    '[data-sonic-attribute="title"]',
+    d => d.innerHTML
+  );
+  const date = await page.$eval(
+    '[data-sonic-attribute="publish-date"]',
+    d => d.innerHTML
+  );
   result.date = date.trim();
-  result.time = '';
+  result.time = "";
 
   await page.close();
 
   return result;
 }
 
-
 (async () => {
-
   try {
     const browser = await setup();
 
@@ -238,10 +241,14 @@ async function video(browser, url) {
       const url = args.url[i];
       let params = null;
 
-      try {
-        params = await video(browser, url);
-      } catch (e) {
-        console.log(e);
+      let tries = 0;
+      while (tries++ < 5) {
+        try {
+          params = await video(browser, url);
+          break;
+        } catch (e) {
+          console.log(e);
+        }
       }
 
       // the m3u8 gets a lot of 403 returns :(
@@ -249,7 +256,7 @@ async function video(browser, url) {
       if (params.m3u8 === null) {
         let count = 0;
         while (count++ < 10) {
-          console.log('retry', params.url);
+          console.log("retry", params.url);
           const resp = await fetch(params.url);
           console.log(resp.ok, resp.statusText);
           if (resp.ok) {
@@ -264,8 +271,13 @@ async function video(browser, url) {
         process.exit(1);
       }
 
-      let filename = sanitize(params.date + ' - ' + params.time + ' ' + params.title + '.mp4');
-      filename = await uniquefilename.get(path.join(args.out, filename.trim()), {});
+      let filename = sanitize(
+        params.date + " - " + params.time + " " + params.title + ".mp4"
+      );
+      filename = await uniquefilename.get(
+        path.join(args.out, filename.trim()),
+        {}
+      );
 
       await hls_download(params, filename, args);
     }
@@ -273,6 +285,4 @@ async function video(browser, url) {
   } catch (e) {
     console.log(e);
   }
-
 })();
-
