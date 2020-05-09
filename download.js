@@ -199,6 +199,7 @@ async function video(browser, url) {
   let result = {
     url: null,
     m3u8: null,
+    title: null,
   };
 
   const page = await browser.newPage();
@@ -208,34 +209,54 @@ async function video(browser, url) {
     const split = url.split("/");
     const lastUrlPart = split[split.length - 1];
     console.log("looking for", lastUrlPart);
+    let m3u8 = null;
 
     await page.goto(url);
 
-    const dataResp = await page.waitForResponse(
-      (response) =>
-        response.url().indexOf(lastUrlPart) > 0 && response.status() === 200,
-      { timeout: 10000 }
-    );
+    try {
+      const dataResp = await page.waitForResponse(
+        (response) =>
+          (response.url().indexOf(lastUrlPart) > 0 &&
+            response.status() === 200) ||
+          response.url().indexOf("index.m3u8") > 0,
+        { timeout: 10000 }
+      );
 
-    const data = await dataResp.json();
-    if (!data.included)
-      throw new Error("expected data object not found 'included'");
-
-    for (let i = 0; i < data.included.length; ++i) {
-      let a = data.included[i];
-      if (a.attributes && a.attributes.alternateId === lastUrlPart) {
-        result.title = a.attributes.name;
-        result.date = a.attributes.scheduleStart;
-        result.time = "";
-        console.log(result);
-        break;
+      if (dataResp) {
+        if (dataResp.url().indexOf(lastUrlPart) > 0) {
+          const data = await dataResp.json();
+          if (data.included) {
+            for (let i = 0; i < data.included.length; ++i) {
+              let a = data.included[i];
+              if (a.attributes && a.attributes.alternateId === lastUrlPart) {
+                result.title = a.attributes.name;
+                result.date = a.attributes.scheduleStart;
+                result.time = "";
+                console.log(result);
+                break;
+              }
+            }
+          }
+        } else {
+          m3u8 = dataResp;
+        }
       }
+    } catch (e) {
+      console.log("unable to retrieve title, using url as fallback");
     }
 
-    const m3u8 = await page.waitForResponse(
-      (response) => response.url().indexOf("index.m3u8") > 0,
-      { timeout: 10000 }
-    );
+    if (result.title === null) {
+      result.title = lastUrlPart;
+      result.date = "";
+      result.time = "";
+    }
+
+    if (m3u8 == null) {
+      m3u8 = await page.waitForResponse(
+        (response) => response.url().indexOf("index.m3u8") > 0,
+        { timeout: 10000 }
+      );
+    }
     result.url = m3u8.url();
     console.log(`url found ${result.url}`);
     if (m3u8.ok()) result.m3u8 = await m3u8.text();
@@ -294,9 +315,9 @@ async function video(browser, url) {
         process.exit(1);
       }
 
-      let filename = sanitize(
-        params.date + " - " + params.time + " " + params.title + ".mp4"
-      );
+      const datePart = params.date.length > 0 ? params.date + " - " : "";
+      const timePart = params.time.length > 0 ? params.time + " " : "";
+      let filename = sanitize(datePart + timePart + params.title + ".mp4");
       filename = await uniquefilename.get(
         path.join(args.out, filename.trim()),
         {}
