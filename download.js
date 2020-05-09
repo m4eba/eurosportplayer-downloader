@@ -204,26 +204,44 @@ async function video(browser, url) {
   const page = await browser.newPage();
   page.setViewport({ width: 1280, height: 720 });
 
-  await page.goto(url);
-  const m3u8 = await page.waitForResponse(
-    (response) => response.url().indexOf("index.m3u8") > 0,
-    { timeout: 10000 }
-  );
-  result.url = m3u8.url();
-  if (m3u8.ok()) result.m3u8 = await m3u8.text();
-  await page.waitFor('[data-sonic-attribute="title"]');
-  result.title = await page.$eval(
-    '[data-sonic-attribute="title"]',
-    (d) => d.innerHTML
-  );
-  const date = await page.$eval(
-    '[data-sonic-attribute="publish-date"]',
-    (d) => d.innerHTML
-  );
-  result.date = date.trim();
-  result.time = "";
+  try {
+    const split = url.split("/");
+    const lastUrlPart = split[split.length - 1];
+    console.log("looking for", lastUrlPart);
 
-  await page.close();
+    await page.goto(url);
+
+    const dataResp = await page.waitForResponse(
+      (response) =>
+        response.url().indexOf(lastUrlPart) > 0 && response.status() === 200,
+      { timeout: 10000 }
+    );
+
+    const data = await dataResp.json();
+    if (!data.included)
+      throw new Error("expected data object not found 'included'");
+
+    for (let i = 0; i < data.included.length; ++i) {
+      let a = data.included[i];
+      if (a.attributes && a.attributes.alternateId === lastUrlPart) {
+        result.title = a.attributes.name;
+        result.date = a.attributes.scheduleStart;
+        result.time = "";
+        console.log(result);
+        break;
+      }
+    }
+
+    const m3u8 = await page.waitForResponse(
+      (response) => response.url().indexOf("index.m3u8") > 0,
+      { timeout: 10000 }
+    );
+    result.url = m3u8.url();
+    console.log(`url found ${result.url}`);
+    if (m3u8.ok()) result.m3u8 = await m3u8.text();
+  } finally {
+    await page.close();
+  }
 
   return result;
 }
