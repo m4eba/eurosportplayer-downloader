@@ -281,7 +281,7 @@ async function video(browser, url) {
       let params = null;
 
       let tries = 0;
-      while (tries++ < 15) {
+      while (tries++ < 5) {
         try {
           params = await video(browser, url);
           break;
