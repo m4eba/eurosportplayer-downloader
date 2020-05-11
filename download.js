@@ -81,6 +81,12 @@ const opt = [
     type: String,
   },
   {
+    name: "trace",
+    description: "Displays tracing output for debugging.",
+    defaultValue: false,
+    type: Boolean,
+  },
+  {
     name: "keep-tmp-files",
     description: "don't delete temporary files",
     type: Boolean,
@@ -137,12 +143,19 @@ if (args.debug == true) {
   };
 }
 
+function trace(msg, ...a) {
+  if (!args.trace) return;
+  console.log.apply(this, [msg].concat(a));
+}
+
 if (args["chrome-exec"]) {
   config.executablePath = args["chrome-exec"];
 }
 if (args["user-data-dir"]) {
   config.userDataDir = args["user-data-dir"];
 }
+
+trace("args", args);
 
 async function setup() {
   try {
@@ -155,18 +168,22 @@ async function setup() {
 }
 
 async function testLoggedIn(browser) {
+  trace("testLoggin");
   const page = await browser.newPage();
   page.setViewport({ width: 1280, height: 720 });
 
+  trace("goto", "https://auth.eurosportplayer.com/my-account");
   await page.goto("https://auth.eurosportplayer.com/my-account");
   await page.waitFor(2000);
   const idx = await page.evaluate('document.body.innerHTML.search("Sign in")');
+  trace('search "sign in" result', idx);
 
   await page.close();
   return idx < 0;
 }
 
 async function login(browser) {
+  trace("login");
   if (!args.email) {
     console.log("need email to login");
     process.exit(1);
@@ -182,8 +199,10 @@ async function login(browser) {
     await page.goto("https://auth.eurosportplayer.com/login?flow=login");
     await page.waitFor('button[type="submit"]');
     await page.waitFor(3000);
+    trace("input email and password");
     await page.type("#email", args.email);
     await page.type("#password", args.password);
+    trace("click submit and wait with timeout", args["login-timeout"]);
     await page.$$eval('button[type="submit"]', (sub) => sub[0].click());
     await page.waitForSelector('button[class*="styles-authButton"]', {
       timeout: args["login-timeout"],
@@ -196,6 +215,7 @@ async function login(browser) {
 }
 
 async function video(browser, url) {
+  trace("video download", url);
   let result = {
     url: null,
     m3u8: null,
@@ -215,16 +235,22 @@ async function video(browser, url) {
 
     try {
       const dataResp = await page.waitForResponse(
-        (response) =>
-          (response.url().indexOf(lastUrlPart) > 0 &&
-            response.status() === 200) ||
-          response.url().indexOf("index.m3u8") > 0,
+        (response) => {
+          trace("dataResp waitFor", response.url());
+          return (
+            (response.url().indexOf(lastUrlPart) > 0 &&
+              response.status() === 200) ||
+            response.url().indexOf("index.m3u8") > 0
+          );
+        },
         { timeout: 10000 }
       );
 
       if (dataResp) {
+        trace("dataResp", dataResp.url());
         if (dataResp.url().indexOf(lastUrlPart) > 0) {
           const data = await dataResp.json();
+          trace("data", data);
           if (data.included) {
             for (let i = 0; i < data.included.length; ++i) {
               let a = data.included[i];
@@ -240,23 +266,28 @@ async function video(browser, url) {
         } else {
           m3u8 = dataResp;
         }
+      } else {
+        trace("dataResp is null");
       }
     } catch (e) {
       console.log("unable to retrieve title, using url as fallback");
     }
 
     if (result.title === null) {
+      trace("fallback title");
       result.title = lastUrlPart;
       result.date = "";
       result.time = "";
     }
 
     if (m3u8 == null) {
+      trace("waitFor m3u8");
       m3u8 = await page.waitForResponse(
         (response) => response.url().indexOf("index.m3u8") > 0,
         { timeout: 10000 }
       );
     }
+    trace("m3u8 url", m3u8.url());
     result.url = m3u8.url();
     console.log(`url found ${result.url}`);
     if (m3u8.ok()) result.m3u8 = await m3u8.text();
@@ -278,6 +309,7 @@ async function video(browser, url) {
 
     for (let i = 0; i < args.url.length; ++i) {
       const url = args.url[i];
+      trace("processing url", url);
       let params = null;
 
       let tries = 0;
@@ -298,6 +330,7 @@ async function video(browser, url) {
       // the m3u8 gets a lot of 403 returns :(
       // fetch it, if empty
       if (params.m3u8 === null) {
+        trace("fetching m3u8");
         let count = 0;
         while (count++ < 10) {
           console.log("retry", params.url);
@@ -323,6 +356,7 @@ async function video(browser, url) {
         {}
       );
 
+      trace("start download", params, filename, args);
       await hls_download(params, filename, args);
     }
     await browser.close();
