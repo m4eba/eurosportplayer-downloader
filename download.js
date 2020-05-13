@@ -155,7 +155,12 @@ if (args["user-data-dir"]) {
   config.userDataDir = args["user-data-dir"];
 }
 
-trace("args", args);
+if (args.trace) {
+  let traceArgs = { ...args };
+  if (traceArgs.email) traceArgs.email = "****";
+  if (traceArgs.password) traceArgs.password = "****";
+  trace("args", traceArgs);
+}
 
 async function setup() {
   try {
