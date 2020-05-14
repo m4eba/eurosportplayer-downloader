@@ -9,6 +9,7 @@
     "m3u8-parser": "^4.4.0",
     "node-fetch": "^2.6.0",
     "puppeteer": "^2.1.1",
+    "puppeteer-har": "^1.1.2",
     "sanitize-filename": "^1.6.1",
     "uniquefilename": "^1.1.2"
   },

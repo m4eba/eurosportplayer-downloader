@@ -1,5 +1,7 @@
 const path = require("path");
+const fs = require("fs");
 const puppeteer = require("puppeteer");
+const PuppeteerHar = require("puppeteer-har");
 const commandLineUsage = require("command-line-usage");
 const commandLineArgs = require("command-line-args");
 const sanitize = require("sanitize-filename");
@@ -83,6 +85,12 @@ const opt = [
   {
     name: "trace",
     description: "Displays tracing output for debugging.",
+    defaultValue: false,
+    type: Boolean,
+  },
+  {
+    name: "har",
+    description: "Generate HAR captiure file for debugging.",
     defaultValue: false,
     type: Boolean,
   },
@@ -175,6 +183,11 @@ async function setup() {
 async function testLoggedIn(browser) {
   trace("testLoggin");
   const page = await browser.newPage();
+  let har = null;
+  if (args.har) {
+    har = new PuppeteerHar(page);
+    await har.start({ path: "testLoggedIn.har", saveResponse: true });
+  }
   page.setViewport({ width: 1280, height: 720 });
 
   trace("goto", "https://auth.eurosportplayer.com/my-account");
@@ -183,7 +196,11 @@ async function testLoggedIn(browser) {
   const idx = await page.evaluate('document.body.innerHTML.search("Sign in")');
   trace('search "sign in" result', idx);
 
+  if (har !== null) {
+    await har.stop();
+  }
   await page.close();
+
   return idx < 0;
 }
 
@@ -199,6 +216,11 @@ async function login(browser) {
   }
   try {
     const page = await browser.newPage();
+    let har = null;
+    if (args.har) {
+      har = new PuppeteerHar(page);
+      await har.start({ saveResponse: true });
+    }
     page.setViewport({ width: 1280, height: 720 });
 
     await page.goto("https://auth.eurosportplayer.com/login?flow=login");
@@ -212,6 +234,17 @@ async function login(browser) {
     await page.waitForSelector('button[class*="styles-authButton"]', {
       timeout: args["login-timeout"],
     });
+
+    if (har != null) {
+      const harResult = await har.stop();
+      let harString = JSON.stringify(harResult);
+      harString = harString.replace(
+        new RegExp(args.password, "g"),
+        "<password>"
+      );
+      harString = harString.replace(new RegExp(args.email, "g"), "<email>");
+      await fs.promises.writeFile("login.har", harString);
+    }
     await page.close();
   } catch (e) {
     console.log("unable to login", e);
@@ -228,6 +261,11 @@ async function video(browser, url) {
   };
 
   const page = await browser.newPage();
+  let har = null;
+  if (args.har) {
+    har = new PuppeteerHar(page);
+    await har.start({ path: "video.har", saveResponse: true });
+  }
   page.setViewport({ width: 1280, height: 720 });
 
   try {
@@ -297,6 +335,9 @@ async function video(browser, url) {
     console.log(`url found ${result.url}`);
     if (m3u8.ok()) result.m3u8 = await m3u8.text();
   } finally {
+    if (har !== null) {
+      await har.stop();
+    }
     await page.close();
   }
 
