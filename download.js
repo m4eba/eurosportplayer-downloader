@@ -95,6 +95,12 @@ const opt = [
     type: Boolean,
   },
   {
+    name: "save-html",
+    description: "Save pages for debugging.",
+    defaultValue: false,
+    type: Boolean,
+  },
+  {
     name: "keep-tmp-files",
     description: "don't delete temporary files",
     type: Boolean,
@@ -156,6 +162,12 @@ function trace(msg, ...a) {
   console.log.apply(this, [msg].concat(a));
 }
 
+async function savePage(page, filename) {
+  if (!args["save-html"]) return;
+  const html = await page.content();
+  await fs.promises.writeFile(filename, html);
+}
+
 if (args["chrome-exec"]) {
   config.executablePath = args["chrome-exec"];
 }
@@ -197,6 +209,8 @@ async function testLoggedIn(browser) {
   const idx = await page.evaluate('document.body.innerHTML.search("Sign in")');
   trace('search "sign in" result', idx);
 
+  await savePage(page, "testLoggedIn.html");
+
   if (har !== null) {
     await har.stop();
   }
@@ -227,14 +241,19 @@ async function login(browser) {
     await page.goto("https://auth.eurosportplayer.com/login?flow=login");
     await page.waitFor('button[type="submit"]');
     await page.waitFor(3000);
+    await savePage(page, "login.html");
     trace("input email and password");
     await page.type("#email", args.email);
     await page.type("#password", args.password);
     trace("click submit and wait with timeout", args["login-timeout"]);
     await page.$$eval('button[type="submit"]', (sub) => sub[0].click());
-    await page.waitForSelector('button[class*="styles-authButton"]', {
-      timeout: args["login-timeout"],
-    });
+    try {
+      await page.waitForSelector('button[class*="styles-authButton"]', {
+        timeout: args["login-timeout"],
+      });
+    } finally {
+      await savePage(page, "loginSubmitted.html");
+    }
 
     if (har != null) {
       const harResult = await har.stop();
@@ -336,6 +355,7 @@ async function video(browser, url) {
     console.log(`url found ${result.url}`);
     if (m3u8.ok()) result.m3u8 = await m3u8.text();
   } finally {
+    savePage(page, "video.html");
     if (har !== null) {
       await har.stop();
     }
