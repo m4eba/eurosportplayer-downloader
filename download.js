@@ -191,8 +191,9 @@ async function testLoggedIn(browser) {
   page.setViewport({ width: 1280, height: 720 });
 
   trace("goto", "https://auth.eurosportplayer.com/my-account");
-  await page.goto("https://auth.eurosportplayer.com/my-account");
-  await page.waitFor(2000);
+  await page.goto("https://auth.eurosportplayer.com/my-account", {
+    waitUntil: "networkidle0",
+  });
   const idx = await page.evaluate('document.body.innerHTML.search("Sign in")');
   trace('search "sign in" result', idx);
 
